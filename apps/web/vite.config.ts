@@ -56,6 +56,11 @@ function resolveDevProxyTarget(wsUrl: string | undefined): string | undefined {
 const devProxyTarget = resolveDevProxyTarget(configuredWsUrl);
 
 export default defineConfig({
+  // ClearML integration: serve the SPA under a path prefix (the router's
+  // /service/<task>/ root). Driven by VITE_BASE at build time; defaults to "/"
+  // for upstream/dev. Vite bakes this into asset URLs AND import.meta.env.BASE_URL,
+  // which the TanStack router reads as its basepath (see src/router.ts).
+  base: process.env.VITE_BASE || "/",
   plugins: [
     tanstackRouter(),
     react(),
