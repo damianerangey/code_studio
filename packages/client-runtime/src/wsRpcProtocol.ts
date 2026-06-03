@@ -83,7 +83,13 @@ function resolveWsRpcSocketUrl(rawUrl: string): string {
     throw new Error(`Unsupported websocket transport URL protocol: ${resolved.protocol}`);
   }
 
-  resolved.pathname = "/ws";
+  // Append "/ws" to the base URL's existing pathname rather than
+  // overwriting it, so a router sub-path prefix baked into the WS base
+  // URL (e.g. /service/<task>-<port>/) is preserved →
+  // /service/<task>-<port>/ws. With the default root base the pathname is
+  // "/", yielding "/ws" exactly as before.
+  const base = resolved.pathname.replace(/\/+$/, "");
+  resolved.pathname = `${base}/ws`;
   return resolved.toString();
 }
 

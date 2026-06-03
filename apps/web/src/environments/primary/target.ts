@@ -100,6 +100,14 @@ function resolveWindowOriginPrimaryTarget(): PrimaryEnvironmentTarget {
   } else {
     throw new Error(`Unsupported HTTP base URL protocol: ${url.protocol}`);
   }
+  // Carry the router sub-path prefix into the WS base URL. The WS URL is
+  // finalised in client-runtime (no import.meta access there), so the
+  // prefix must be baked in here; resolveWsRpcSocketUrl appends "/ws" to
+  // whatever pathname it receives. Empty prefix → pathname stays "/".
+  const base = clearmlBasePrefix();
+  if (base) {
+    url.pathname = `${base}/`;
+  }
   return {
     source: "window-origin",
     target: {
@@ -132,6 +140,26 @@ function resolveDesktopPrimaryTarget(): PrimaryEnvironmentTarget | null {
   };
 }
 
+// ClearML integration: when the SPA is hosted under a router sub-path
+// (VITE_BASE rewritten to /service/<task>-<port>/ at deploy time),
+// import.meta.env.BASE_URL carries that prefix. API and WebSocket
+// requests must include it so the reverse proxy can route them to this
+// task — the server's routes are still mounted at root, so a stripping
+// proxy (or a server-side strip) maps them back. Returns "" for the
+// default root base (upstream/desktop), making everything below a no-op.
+export function clearmlBasePrefix(): string {
+  const base = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+  return base;
+}
+
+function withBasePrefix(pathname: string): string {
+  const base = clearmlBasePrefix();
+  if (!base) {
+    return pathname;
+  }
+  return base + (pathname.startsWith("/") ? pathname : `/${pathname}`);
+}
+
 export function resolvePrimaryEnvironmentHttpUrl(
   pathname: string,
   searchParams?: Record<string, string>,
@@ -142,7 +170,7 @@ export function resolvePrimaryEnvironmentHttpUrl(
   }
 
   const url = new URL(resolveHttpRequestBaseUrl(primaryTarget.target.httpBaseUrl));
-  url.pathname = pathname;
+  url.pathname = withBasePrefix(pathname);
   if (searchParams) {
     url.search = new URLSearchParams(searchParams).toString();
   }
