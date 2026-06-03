@@ -45,6 +45,42 @@ export const browserApiCorsLayer = HttpRouter.cors({
   maxAge: 600,
 });
 
+// ClearML integration: when hosted behind a path-routing reverse proxy that
+// does NOT strip the route prefix (e.g. /service/<task>-<port>), requests
+// arrive prefixed but every route here is mounted at root (/api/*, /ws,
+// /assets/*). This global middleware strips a configured prefix from the
+// request URL before routing, so the existing root-mounted routes match.
+//
+// The prefix is provided at launch via T3CODE_BASE_PATH (no trailing slash);
+// empty/unset → middleware is a no-op (upstream/desktop). It's also a no-op
+// when the proxy already strips the prefix (the URL won't start with it),
+// so this is safe regardless of proxy behavior.
+const SERVER_BASE_PATH = (globalThis.process?.env?.T3CODE_BASE_PATH ?? "")
+  .trim()
+  .replace(/\/+$/, "");
+
+export const stripBasePathLayer = HttpRouter.middleware(
+  (httpEffect) =>
+    Effect.gen(function* () {
+      if (!SERVER_BASE_PATH) {
+        return yield* httpEffect;
+      }
+      const request = yield* HttpServerRequest.HttpServerRequest;
+      const url = request.url;
+      if (url === SERVER_BASE_PATH || url.startsWith(`${SERVER_BASE_PATH}/`)) {
+        const stripped = url.slice(SERVER_BASE_PATH.length) || "/";
+        return yield* httpEffect.pipe(
+          Effect.provideService(
+            HttpServerRequest.HttpServerRequest,
+            request.modify({ url: stripped }),
+          ),
+        );
+      }
+      return yield* httpEffect;
+    }),
+  { global: true },
+);
+
 export function isLoopbackHostname(hostname: string): boolean {
   const normalizedHostname = hostname
     .trim()
