@@ -342,7 +342,12 @@ const makeOpenCodeRuntime = Effect.gen(function* () {
             shell: process.platform === "win32",
             env: {
               ...(input.environment ?? process.env),
-              OPENCODE_CONFIG_CONTENT: OPENCODE_EMPTY_CONFIG_CONTENT,
+              // Respect an externally-supplied OpenCode config (e.g. a host
+              // that injects a custom provider pointing at an in-pod gateway);
+              // fall back to the empty config when none is provided.
+              OPENCODE_CONFIG_CONTENT:
+                (input.environment ?? process.env).OPENCODE_CONFIG_CONTENT ??
+                OPENCODE_EMPTY_CONFIG_CONTENT,
             },
           }),
         )
