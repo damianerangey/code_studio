@@ -92,6 +92,13 @@ export default defineConfig({
   },
   resolve: {
     tsconfigPaths: true,
+    // Force a single copy of React into the bundle. Under a hoisted /
+    // flattened node_modules (used so the server runtime can resolve all
+    // transitive deps), more than one React can otherwise be resolved and
+    // bundled, which crashes the SPA at mount with
+    // "Cannot read properties of null (reading 'useEffect')". Deduping is
+    // the standard Vite fix and is harmless when only one copy exists.
+    dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
   server: {
     host,
